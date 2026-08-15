@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { buildConditionLabelMap } from "@/lib/reports/condition-labels";
 
 export const dynamic = "force-dynamic";
 
@@ -9,10 +11,10 @@ function pct(n: number | null): string {
 
 export default async function ConditionsPage() {
   const supabase = supabaseAdmin();
-  const { data, error } = await supabase
-    .from("condition_fragmentation_report")
-    .select("*")
-    .order("n_trials", { ascending: false });
+  const [{ data, error }, labels] = await Promise.all([
+    supabase.from("condition_fragmentation_report").select("*").order("n_trials", { ascending: false }),
+    buildConditionLabelMap(),
+  ]);
   if (error) throw new Error(error.message);
 
   const rows = data ?? [];
@@ -23,14 +25,15 @@ export default async function ConditionsPage() {
       <p className="mt-1 max-w-2xl text-sm text-stone-600">
         For each condition, how many distinct outcome instruments are in use across trials, and what share
         are validated vs. investigator-devised — the answer to &ldquo;why do two trials on the same disease
-        use two different scales.&rdquo;
+        use two different scales.&rdquo; Click a condition for a full written interpretation.
       </p>
 
       <div className="mt-6 overflow-x-auto rounded-lg border border-stone-200 bg-white">
-        <table className="w-full min-w-[900px] text-left text-sm">
+        <table className="w-full min-w-[1000px] text-left text-sm">
           <thead className="border-b border-stone-200 bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
-              <th className="px-4 py-3">ICD-10 category</th>
+              <th className="px-4 py-3">ICD-10</th>
+              <th className="px-4 py-3">Condition</th>
               <th className="px-4 py-3">Trials</th>
               <th className="px-4 py-3">Distinct instruments</th>
               <th className="px-4 py-3">Validated share</th>
@@ -42,7 +45,16 @@ export default async function ConditionsPage() {
           <tbody>
             {rows.map((r) => (
               <tr key={r.condition_icd10_category} className="border-b border-stone-100 last:border-0 hover:bg-stone-50">
-                <td className="px-4 py-3 font-mono text-xs">{r.condition_icd10_category}</td>
+                <td className="px-4 py-3 font-mono text-xs">
+                  <Link href={`/conditions/${r.condition_icd10_category}`} className="hover:underline">
+                    {r.condition_icd10_category}
+                  </Link>
+                </td>
+                <td className="max-w-[240px] px-4 py-3 text-stone-700">
+                  <Link href={`/conditions/${r.condition_icd10_category}`} className="hover:underline">
+                    {labels.get(r.condition_icd10_category) ?? <span className="text-stone-400">unlabeled</span>}
+                  </Link>
+                </td>
                 <td className="px-4 py-3">{r.n_trials}</td>
                 <td className="px-4 py-3">{r.distinct_outcome_instruments_used}</td>
                 <td className="px-4 py-3">{pct(r.share_validated)}</td>
@@ -64,7 +76,7 @@ export default async function ConditionsPage() {
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-stone-400">
+                <td colSpan={8} className="px-4 py-8 text-center text-stone-400">
                   No fragmentation data yet — run Phase 2 analysis first.
                 </td>
               </tr>

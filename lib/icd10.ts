@@ -11,3 +11,26 @@ export function extractIcd10Category(conditionText: string | null): string | nul
   const m = conditionText.match(/\b([A-Z]\d{2})\d*\s*-/);
   return m ? m[1] : null;
 }
+
+export interface Icd10Entry {
+  category: string;
+  description: string;
+}
+
+/**
+ * Extracts every "CODE- Description" pair from the condition text (a trial
+ * can list more than one, e.g. "Health Condition 1: K036- Deposits... Health
+ * Condition 2: Z464- Encounter for..."). Description runs up to the next
+ * "Health Condition N:" marker or the end of the string.
+ */
+export function extractAllIcd10Entries(conditionText: string | null): Icd10Entry[] {
+  if (!conditionText) return [];
+  const entries: Icd10Entry[] = [];
+  const re = /([A-Z]\d{2})\d*\s*-\s*(.+?)(?=\s*Health Condition \d+\s*:|$)/g;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(conditionText)) !== null) {
+    const description = match[2].trim();
+    if (description) entries.push({ category: match[1], description });
+  }
+  return entries;
+}

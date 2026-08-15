@@ -1,0 +1,3 @@
+AyurPramanaSetu_Vercel_App_URL=https://ayurpramanasetu.vercel.app/
+ADMIN_URL=https://ayurpramanasetu.vercel.app/admin
+ADMIN_PASSCODE=1327662be6d07a986a855be35585a34860ad22fcc844c928b6b06d449162f084
