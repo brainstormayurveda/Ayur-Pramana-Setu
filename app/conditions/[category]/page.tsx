@@ -43,7 +43,10 @@ export default async function ConditionReportPage({ params }: { params: Promise<
 
   const ctriIds = trialList.map((t) => t.ctri_id);
   const { data: outcomes } = ctriIds.length
-    ? await supabase.from("trial_outcomes").select("outcome_name, outcome_type, classification, matched_instrument_id, ctri_id").in("ctri_id", ctriIds)
+    ? await supabase
+        .from("trial_outcomes")
+        .select("outcome_name, outcome_type, classification, matched_instrument_id, assessment_criteria_text, ctri_id")
+        .in("ctri_id", ctriIds)
     : { data: [] };
 
   return (
@@ -117,15 +120,26 @@ export default async function ConditionReportPage({ params }: { params: Promise<
           <h2 className="text-sm font-semibold text-stone-900">Outcome measures used across these trials</h2>
           <ul className="mt-3 space-y-2">
             {outcomes.map((o, i) => (
-              <li key={i} className="flex items-start justify-between gap-3 rounded-md border border-stone-100 bg-stone-50 px-3 py-2 text-sm">
-                <span className="text-stone-700">
-                  <span className="mr-2 rounded bg-stone-200 px-1.5 py-0.5 text-xs uppercase text-stone-600">{o.outcome_type}</span>
-                  {o.outcome_name}
-                </span>
-                <span className="whitespace-nowrap text-xs text-stone-500">
-                  {o.classification?.replace(/_/g, " ")}
-                  {o.matched_instrument_id ? ` · ${o.matched_instrument_id}` : ""}
-                </span>
+              <li
+                key={i}
+                className={`rounded-md border px-3 py-2 text-sm ${o.classification === "investigator_devised_unvalidated" ? "border-amber-200 bg-amber-50" : "border-stone-100 bg-stone-50"}`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-stone-700">
+                    <span className="mr-2 rounded bg-stone-200 px-1.5 py-0.5 text-xs uppercase text-stone-600">{o.outcome_type}</span>
+                    {o.outcome_name}
+                  </span>
+                  <span className="whitespace-nowrap text-xs text-stone-500">
+                    {o.classification?.replace(/_/g, " ")}
+                    {o.matched_instrument_id ? ` · ${o.matched_instrument_id}` : ""}
+                  </span>
+                </div>
+                {o.assessment_criteria_text && (
+                  <p className="mt-1.5 text-xs italic text-stone-600">Registered grading: {o.assessment_criteria_text}</p>
+                )}
+                <Link href={`/trials/${o.ctri_id}`} className="mt-1 inline-block font-mono text-xs text-stone-400 hover:text-stone-700 hover:underline">
+                  {o.ctri_id}
+                </Link>
               </li>
             ))}
           </ul>

@@ -34,6 +34,7 @@ export interface MethodsAnalysisResult {
     outcome_name: string;
     outcome_type: "primary" | "secondary";
     classification: OutcomeClassification;
+    assessment_criteria_text: string | null;
   }>;
 }
 
@@ -61,8 +62,13 @@ const SCHEMA = {
           outcome_name: { type: "string" },
           outcome_type: { type: "string", enum: ["primary", "secondary"] },
           classification: { type: "string", enum: OUTCOME_CLASSIFICATIONS },
+          assessment_criteria_text: {
+            type: ["string", "null"],
+            description:
+              "The registry's own description of how this outcome is scored or graded, if stated (e.g. a numeric scale with defined levels like '0 to 3 signifying none, mild, moderate, severe'). Closely follow the registry's own wording — do not invent or standardize grade definitions it doesn't state. Null if the registry names the outcome without specifying any scoring/grading detail.",
+          },
         },
-        required: ["outcome_name", "outcome_type", "classification"],
+        required: ["outcome_name", "outcome_type", "classification", "assessment_criteria_text"],
         additionalProperties: false,
       },
     },
@@ -111,7 +117,14 @@ Task:
    how you name it, do not assume validation. List each outcome named in Primary/Secondary Outcomes as a
    separate entry with its own outcome_name (keep names concise — the specific measure, not the full
    sentence), outcome_type, and classification.
-6. Return your assessment as structured output matching the given schema. Do not assess statistical test
+6. For each outcome, also extract assessment_criteria_text: if the registry text states how that outcome is
+   scored or graded (a numeric scale with defined levels, e.g. "0 to 3 signifying none, mild, moderate,
+   severe"; a named grading system with defined categories, e.g. "Grade 1-present, Grade 2-absent"; or an
+   explicit scoring range), pull that definition out closely following the registry's own wording. This
+   matters most for investigator_devised_unvalidated outcomes, where the actual grading definition — not
+   just the outcome's name — is often the only way to judge whether it constitutes real measurement or an
+   arbitrary made-up scale. Set to null if the registry names the outcome without specifying grading detail.
+7. Return your assessment as structured output matching the given schema. Do not assess statistical test
    reporting or appropriateness — that is handled separately and fixed for all trials at this phase.`;
 }
 

@@ -62,7 +62,7 @@ export default async function TrialReportPage({ params }: { params: Promise<{ ct
   const { data: methodsAnalysis } = await supabase.from("methods_analysis").select("*").eq("ctri_id", ctriId).maybeSingle();
   const { data: outcomes } = await supabase
     .from("trial_outcomes")
-    .select("outcome_name, outcome_type, classification, matched_instrument_id")
+    .select("outcome_name, outcome_type, classification, matched_instrument_id, assessment_criteria_text")
     .eq("ctri_id", ctriId);
   const { data: publications } = await supabase
     .from("trial_publications")
@@ -196,15 +196,23 @@ export default async function TrialReportPage({ params }: { params: Promise<{ ct
             <div className="text-xs font-medium uppercase tracking-wide text-stone-500">Outcome measures</div>
             <ul className="mt-2 space-y-2">
               {outcomes.map((o, i) => (
-                <li key={i} className="flex items-start justify-between gap-3 rounded-md border border-stone-100 bg-stone-50 px-3 py-2 text-sm">
-                  <span className="text-stone-700">
-                    <span className="mr-2 rounded bg-stone-200 px-1.5 py-0.5 text-xs uppercase text-stone-600">{o.outcome_type}</span>
-                    {o.outcome_name}
-                  </span>
-                  <span className="whitespace-nowrap text-xs text-stone-500">
-                    {o.classification?.replace(/_/g, " ")}
-                    {o.matched_instrument_id ? ` · ${o.matched_instrument_id}` : ""}
-                  </span>
+                <li
+                  key={i}
+                  className={`rounded-md border px-3 py-2 text-sm ${o.classification === "investigator_devised_unvalidated" ? "border-amber-200 bg-amber-50" : "border-stone-100 bg-stone-50"}`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="text-stone-700">
+                      <span className="mr-2 rounded bg-stone-200 px-1.5 py-0.5 text-xs uppercase text-stone-600">{o.outcome_type}</span>
+                      {o.outcome_name}
+                    </span>
+                    <span className="whitespace-nowrap text-xs text-stone-500">
+                      {o.classification?.replace(/_/g, " ")}
+                      {o.matched_instrument_id ? ` · ${o.matched_instrument_id}` : ""}
+                    </span>
+                  </div>
+                  {o.assessment_criteria_text && (
+                    <p className="mt-1.5 text-xs italic text-stone-600">Registered grading: {o.assessment_criteria_text}</p>
+                  )}
                 </li>
               ))}
             </ul>

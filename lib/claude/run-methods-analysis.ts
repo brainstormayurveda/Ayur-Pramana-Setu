@@ -91,6 +91,7 @@ export async function runMethodsAnalysis({ limit = 150 }: { limit?: number } = {
                 outcome_name: o.outcome_name,
                 outcome_type: o.outcome_type,
                 classification: o.classification,
+                assessment_criteria_text: o.assessment_criteria_text,
                 matched_instrument_id: matchedId,
                 matched_comet_core_outcome_set: false,
               };
