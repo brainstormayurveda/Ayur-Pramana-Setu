@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { startSession, search, findPagerTarget, postback, extractTrialIdsFromResults, fetchTrialDetailHtml } from "./client";
 import { parseTrialDetail, keywordSuggestsAyurveda } from "./parse";
+import { extractIcd10Category } from "@/lib/icd10";
 
 const SEARCH_TERM = "ayurveda OR ayurvedic";
 const DETAIL_FETCH_DELAY_MS = 900;
@@ -132,6 +133,7 @@ export async function ingestOnce({ limit = 150 }: { limit?: number } = {}): Prom
             study_design: parsed.studyDesign,
             phase: parsed.phase,
             condition: parsed.condition,
+            condition_icd10_category: extractIcd10Category(parsed.condition),
             intervention: parsed.intervention,
             primary_outcomes: parsed.primaryOutcomes,
             secondary_outcomes: parsed.secondaryOutcomes,
