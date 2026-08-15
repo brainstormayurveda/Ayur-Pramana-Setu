@@ -10,6 +10,7 @@ interface TrialRow {
   condition: string | null;
   recruitment_status: string | null;
   registration_date: string | null;
+  publication_search_completed_at: string | null;
   title_analysis: {
     spirit_item1_compliance: string | null;
     design_title_vs_registry_match: string | null;
@@ -65,7 +66,7 @@ export default async function TrialsPage({ searchParams }: { searchParams: Promi
   let query = supabase
     .from("trials_raw")
     .select(
-      "ctri_id, title_public, title_scientific, condition, recruitment_status, registration_date, title_analysis(spirit_item1_compliance, design_title_vs_registry_match, dual_nomenclature_flag)"
+      "ctri_id, title_public, title_scientific, condition, recruitment_status, registration_date, publication_search_completed_at, title_analysis(spirit_item1_compliance, design_title_vs_registry_match, dual_nomenclature_flag)"
     )
     .order("registration_date", { ascending: false, nullsFirst: false })
     .limit(500);
@@ -81,6 +82,10 @@ export default async function TrialsPage({ searchParams }: { searchParams: Promi
 
   const { data, error } = await query;
   if (error) throw new Error(error.message);
+
+  const { data: pubRows, error: pubError } = await supabase.from("trial_publications").select("ctri_id");
+  if (pubError) throw new Error(pubError.message);
+  const trialsWithPublication = new Set((pubRows ?? []).map((r) => r.ctri_id));
 
   let trials = (data ?? []) as unknown as TrialRow[];
   // Normalize the embedded relation: PostgREST returns a single object for
@@ -197,6 +202,7 @@ export default async function TrialsPage({ searchParams }: { searchParams: Promi
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">SPIRIT Item 1</th>
               <th className="px-4 py-3">Design match</th>
+              <th className="px-4 py-3">Publication (Europe PMC)</th>
             </tr>
           </thead>
           <tbody>
@@ -232,11 +238,24 @@ export default async function TrialsPage({ searchParams }: { searchParams: Promi
                     (t.title_analysis?.design_title_vs_registry_match ?? "—")
                   )}
                 </td>
+                <td className="px-4 py-3">
+                  {trialsWithPublication.has(t.ctri_id) ? (
+                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
+                      found
+                    </span>
+                  ) : t.publication_search_completed_at ? (
+                    <span className="rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-500">
+                      not found
+                    </span>
+                  ) : (
+                    <span className="text-xs text-stone-400">not yet searched</span>
+                  )}
+                </td>
               </tr>
             ))}
             {trials.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-stone-400">
+                <td colSpan={7} className="px-4 py-8 text-center text-stone-400">
                   No trials match this filter.
                 </td>
               </tr>
