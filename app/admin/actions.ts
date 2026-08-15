@@ -8,16 +8,9 @@ import { runMethodsAnalysis } from "@/lib/claude/run-methods-analysis";
 import { computeFragmentationReport } from "@/lib/reports/fragmentation";
 import { matchPublications } from "@/lib/europepmc/match";
 import { runPublicationComparison } from "@/lib/claude/run-publication-comparison";
+import { requireAdmin } from "@/lib/admin-auth";
 
 const COOKIE_NAME = "admin_passcode";
-
-async function requireAdmin() {
-  const store = await cookies();
-  const secret = process.env.CRON_SECRET;
-  if (!secret || store.get(COOKIE_NAME)?.value !== secret) {
-    throw new Error("Not authorized. Enter the admin passcode first.");
-  }
-}
 
 export async function verifyPasscode(formData: FormData) {
   const passcode = String(formData.get("passcode") ?? "");

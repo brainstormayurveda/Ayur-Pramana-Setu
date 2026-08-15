@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { isAdminAuthed } from "@/lib/admin-auth";
+import { addManualPublicationAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +69,7 @@ export default async function TrialReportPage({ params }: { params: Promise<{ ct
     .select("*")
     .eq("ctri_id", ctriId)
     .order("ingested_at", { ascending: true });
+  const isAdmin = await isAdminAuthed();
 
   const raw = (trial.raw_ictrp_record ?? {}) as Record<string, string>;
   const sourceUrl = raw["url"] || null;
@@ -236,6 +239,7 @@ export default async function TrialReportPage({ params }: { params: Promise<{ ct
                       {p.journal ? `${p.journal} · ` : ""}
                       {p.pub_year ?? ""}
                       {p.author_string ? ` · ${p.author_string}` : ""}
+                      {p.entry_source === "manual" ? " · added manually" : ""}
                     </p>
                   </div>
                   {p.comparison_analyzed_at && (
@@ -268,6 +272,59 @@ export default async function TrialReportPage({ params }: { params: Promise<{ ct
                 )}
               </div>
             ))}
+          </div>
+        )}
+
+        {isAdmin && (
+          <div className="mt-5 rounded-md border border-dashed border-stone-300 p-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+              Add a publication manually
+            </h3>
+            <p className="mt-1 text-xs text-stone-500">
+              For when you&rsquo;ve found the paper yourself — via Google, a journal site, ResearchGate, etc. —
+              and the automated Europe PMC search on the CTRI number didn&rsquo;t catch it (its title, authors,
+              or journal don&rsquo;t need to match the CTRI record at all). Give a DOI to auto-fill details from
+              CrossRef, or just fill in what you have by hand. Pasting the abstract (or a key excerpt) matters
+              most — that&rsquo;s what the comparison actually reads.
+            </p>
+            <form action={addManualPublicationAction} className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <input type="hidden" name="ctriId" value={trial.ctri_id} />
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-medium text-stone-500">DOI (optional — auto-fills fields below)</label>
+                <input name="doi" placeholder="10.xxxx/xxxxx or https://doi.org/..." className="mt-1 w-full rounded-md border border-stone-300 px-3 py-1.5 text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-stone-500">Title</label>
+                <input name="title" className="mt-1 w-full rounded-md border border-stone-300 px-3 py-1.5 text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-stone-500">Journal</label>
+                <input name="journal" className="mt-1 w-full rounded-md border border-stone-300 px-3 py-1.5 text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-stone-500">Authors</label>
+                <input name="authors" className="mt-1 w-full rounded-md border border-stone-300 px-3 py-1.5 text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-stone-500">Year</label>
+                <input name="pubYear" type="number" className="mt-1 w-full rounded-md border border-stone-300 px-3 py-1.5 text-sm" />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-medium text-stone-500">
+                  Source URL (required unless a DOI is given above)
+                </label>
+                <input name="sourceUrl" placeholder="https://..." className="mt-1 w-full rounded-md border border-stone-300 px-3 py-1.5 text-sm" />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-medium text-stone-500">Abstract / excerpt</label>
+                <textarea name="abstract" rows={4} className="mt-1 w-full rounded-md border border-stone-300 px-3 py-1.5 text-sm" />
+              </div>
+              <div className="sm:col-span-2">
+                <button type="submit" className="rounded-md bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-700">
+                  Search &amp; analyse
+                </button>
+              </div>
+            </form>
           </div>
         )}
       </section>
