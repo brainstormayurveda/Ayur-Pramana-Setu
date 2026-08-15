@@ -17,6 +17,14 @@ interface TrialRow {
   } | null;
 }
 
+interface SearchParams {
+  compliance?: string;
+  mismatch?: string;
+  q?: string;
+  from?: string;
+  to?: string;
+}
+
 const COMPLIANCE_STYLES: Record<string, string> = {
   compliant: "bg-emerald-100 text-emerald-800",
   partial: "bg-amber-100 text-amber-800",
@@ -32,12 +40,20 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-export default async function TrialsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ compliance?: string; mismatch?: string }>;
-}) {
-  const { compliance, mismatch } = await searchParams;
+/** Preserve the other active filters when toggling one link-based filter. */
+function filterHref(current: SearchParams, overrides: Partial<SearchParams>): string {
+  const merged = { ...current, ...overrides };
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(merged)) {
+    if (value) params.set(key, value);
+  }
+  const qs = params.toString();
+  return qs ? `/?${qs}` : "/";
+}
+
+export default async function TrialsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const sp = await searchParams;
+  const { compliance, mismatch, q, from, to } = sp;
   const supabase = supabaseAdmin();
 
   const [{ count: totalTrials }, { count: analyzedCount }, { count: ayurvedaCount }] = await Promise.all([
@@ -52,7 +68,16 @@ export default async function TrialsPage({
       "ctri_id, title_public, title_scientific, condition, recruitment_status, registration_date, title_analysis(spirit_item1_compliance, design_title_vs_registry_match, dual_nomenclature_flag)"
     )
     .order("registration_date", { ascending: false, nullsFirst: false })
-    .limit(200);
+    .limit(500);
+
+  if (q) {
+    const term = q.trim();
+    query = query.or(
+      `title_public.ilike.%${term}%,title_scientific.ilike.%${term}%,condition.ilike.%${term}%,ctri_id.ilike.%${term}%`
+    );
+  }
+  if (from) query = query.gte("registration_date", from);
+  if (to) query = query.lte("registration_date", to);
 
   const { data, error } = await query;
   if (error) throw new Error(error.message);
@@ -73,13 +98,25 @@ export default async function TrialsPage({
     trials = trials.filter((t) => t.title_analysis?.design_title_vs_registry_match === "mismatch");
   }
 
+  const hasAnyFilter = compliance || mismatch || q || from || to;
+
   return (
     <div className="mx-auto max-w-6xl px-6 py-8">
-      <h1 className="text-2xl font-semibold tracking-tight">Trial-level evidence audit</h1>
-      <p className="mt-1 max-w-2xl text-sm text-stone-600">
-        Ayurveda clinical trials registered on CTRI (via WHO ICTRP), assessed against SPIRIT 2013 Item 1
-        title-reporting standards. Read-only research tool — not an efficacy judgment on any intervention.
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Trial-level evidence audit</h1>
+          <p className="mt-1 max-w-2xl text-sm text-stone-600">
+            Ayurveda clinical trials registered on CTRI (via WHO ICTRP), assessed against SPIRIT 2013 Item 1
+            title-reporting standards. Read-only research tool — not an efficacy judgment on any intervention.
+          </p>
+        </div>
+        <Link
+          href="/admin"
+          className="whitespace-nowrap rounded-full border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-100"
+        >
+          Run analysis →
+        </Link>
+      </div>
 
       <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatCard label="Trials ingested" value={totalTrials ?? 0} />
@@ -88,28 +125,66 @@ export default async function TrialsPage({
         <StatCard label="Pending analysis" value={(totalTrials ?? 0) - (analyzedCount ?? 0)} />
       </div>
 
-      <div className="mt-8 flex flex-wrap items-center gap-3 text-sm">
-        <span className="font-medium text-stone-700">Filter by SPIRIT compliance:</span>
+      {/* Search + date range */}
+      <form method="GET" className="mt-8 flex flex-wrap items-end gap-3 rounded-lg border border-stone-200 bg-white p-4 text-sm">
+        {compliance && <input type="hidden" name="compliance" value={compliance} />}
+        {mismatch && <input type="hidden" name="mismatch" value={mismatch} />}
+        <div className="flex-1 min-w-[220px]">
+          <label className="block text-xs font-medium text-stone-500">Search title / condition / CTRI ID</label>
+          <input
+            type="text"
+            name="q"
+            defaultValue={q ?? ""}
+            placeholder="e.g. diabetes, Ashwagandha, CTRI/2025..."
+            className="mt-1 w-full rounded-md border border-stone-300 px-3 py-1.5 text-sm focus:border-stone-500 focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-stone-500">Registered from</label>
+          <input
+            type="date"
+            name="from"
+            defaultValue={from ?? ""}
+            className="mt-1 rounded-md border border-stone-300 px-3 py-1.5 text-sm focus:border-stone-500 focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-stone-500">Registered to</label>
+          <input
+            type="date"
+            name="to"
+            defaultValue={to ?? ""}
+            className="mt-1 rounded-md border border-stone-300 px-3 py-1.5 text-sm focus:border-stone-500 focus:outline-none"
+          />
+        </div>
+        <button type="submit" className="rounded-md bg-stone-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-stone-700">
+          Search
+        </button>
+        {hasAnyFilter && (
+          <Link href="/" className="text-sm text-stone-500 underline hover:text-stone-800">
+            clear all
+          </Link>
+        )}
+      </form>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+        <span className="font-medium text-stone-700">SPIRIT compliance:</span>
         {["compliant", "partial", "non_compliant"].map((c) => (
           <Link
             key={c}
-            href={`/?compliance=${c}${mismatch === "1" ? "&mismatch=1" : ""}`}
+            href={filterHref(sp, { compliance: compliance === c ? undefined : c })}
             className={`rounded-full px-3 py-1 ${compliance === c ? "bg-stone-900 text-white" : "bg-stone-200 text-stone-700 hover:bg-stone-300"}`}
           >
             {c.replace("_", " ")}
           </Link>
         ))}
         <Link
-          href={mismatch === "1" ? `/${compliance ? `?compliance=${compliance}` : ""}` : `/?mismatch=1${compliance ? `&compliance=${compliance}` : ""}`}
+          href={filterHref(sp, { mismatch: mismatch === "1" ? undefined : "1" })}
           className={`rounded-full px-3 py-1 ${mismatch === "1" ? "bg-stone-900 text-white" : "bg-stone-200 text-stone-700 hover:bg-stone-300"}`}
         >
           design mismatch only
         </Link>
-        {(compliance || mismatch) && (
-          <Link href="/" className="text-stone-500 underline hover:text-stone-800">
-            clear filters
-          </Link>
-        )}
+        <span className="text-stone-400">{trials.length} shown</span>
       </div>
 
       <div className="mt-4 overflow-x-auto rounded-lg border border-stone-200 bg-white">
@@ -127,8 +202,16 @@ export default async function TrialsPage({
           <tbody>
             {trials.map((t) => (
               <tr key={t.ctri_id} className="border-b border-stone-100 last:border-0 hover:bg-stone-50">
-                <td className="px-4 py-3 font-mono text-xs text-stone-500">{t.ctri_id}</td>
-                <td className="max-w-xs px-4 py-3">{t.title_public ?? t.title_scientific ?? "—"}</td>
+                <td className="px-4 py-3 font-mono text-xs text-stone-500">
+                  <Link href={`/trials/${t.ctri_id}`} className="hover:underline">
+                    {t.ctri_id}
+                  </Link>
+                </td>
+                <td className="max-w-xs px-4 py-3">
+                  <Link href={`/trials/${t.ctri_id}`} className="hover:underline">
+                    {t.title_public ?? t.title_scientific ?? "—"}
+                  </Link>
+                </td>
                 <td className="max-w-[200px] truncate px-4 py-3 text-stone-600">{t.condition ?? "—"}</td>
                 <td className="px-4 py-3 text-stone-600">{t.recruitment_status ?? "—"}</td>
                 <td className="px-4 py-3">
