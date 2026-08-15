@@ -38,6 +38,7 @@ export interface PublicationComparisonResult {
   is_primary_report: boolean;
   outcome_switching_flag: boolean | null;
   limitations_disclosed: boolean | null;
+  discloses_own_trial_registration: boolean | null;
   framing_assessment: "appropriately_cautious" | "overstated" | "consistent" | "not_assessable";
   comparison_notes: string;
 }
@@ -57,6 +58,10 @@ const SCHEMA = {
       type: ["boolean", "null"],
       description: "True if the abstract/publication acknowledges the methodological weaknesses already identified at registration (e.g. non-randomized, high-risk sequence generation, open-label despite comparator, investigator-devised outcomes, absent sample-size justification). Null if is_primary_report is false or not assessable.",
     },
+    discloses_own_trial_registration: {
+      type: ["boolean", "null"],
+      description: "True only if the publication's own text (title, abstract, or evident body text) explicitly states its CTRI/clinical trial registration number (e.g. a 'Trial registration: CTRI/...' statement, matching ICMJE-style disclosure practice) — not merely that this candidate was found by searching for the CTRI ID elsewhere. False if the abstract text is available but contains no such registration statement. Null if is_primary_report is false or not assessable.",
+    },
     framing_assessment: {
       type: "string",
       enum: ["appropriately_cautious", "overstated", "consistent", "not_assessable"],
@@ -67,7 +72,14 @@ const SCHEMA = {
       description: "Narrative explanation of the is_primary_report judgment and, if true, the comparison — written for a reader auditing research quality, not the trial's own investigators.",
     },
   },
-  required: ["is_primary_report", "outcome_switching_flag", "limitations_disclosed", "framing_assessment", "comparison_notes"],
+  required: [
+    "is_primary_report",
+    "outcome_switching_flag",
+    "limitations_disclosed",
+    "discloses_own_trial_registration",
+    "framing_assessment",
+    "comparison_notes",
+  ],
   additionalProperties: false,
 } as const;
 
@@ -116,12 +128,18 @@ Task:
    b. Assess limitations_disclosed — does the abstract or evident framing acknowledge any of the
       already-identified methodological weaknesses listed above? Do not assume disclosure that isn't
       textually present.
-   c. Assess framing_assessment: "overstated" if the publication's conclusions claim more certainty or
+   c. Assess discloses_own_trial_registration — does the publication's own text explicitly state its CTRI
+      registration number (e.g. "Trial Registration: CTRI/...", matching ICMJE-style disclosure practice)?
+      This is a distinct question from how this candidate was found — many Ayurveda-specific journals don't
+      enforce registration disclosure the way ICMJE-compliant journals do, so a trial's own results paper can
+      be genuinely published while never stating its registration number anywhere in the text. Judge only
+      what the given abstract/text actually contains; do not assume disclosure exists elsewhere unshown.
+   d. Assess framing_assessment: "overstated" if the publication's conclusions claim more certainty or
       efficacy than the registered methodology (esp. randomization/blinding/sample-size-justification
       weaknesses) can support; "appropriately_cautious" if the publication's own language reflects those
       limitations; "consistent" if there's nothing notable either way.
-3. If is_primary_report is false, set outcome_switching_flag and limitations_disclosed to null and
-   framing_assessment to "not_assessable".
+3. If is_primary_report is false, set outcome_switching_flag, limitations_disclosed, and
+   discloses_own_trial_registration to null and framing_assessment to "not_assessable".
 4. Write comparison_notes explaining your reasoning for a reader auditing Ayurveda research quality —
    be concrete about what in the abstract text supports your judgment.
 5. Return your assessment as structured output matching the given schema.`;

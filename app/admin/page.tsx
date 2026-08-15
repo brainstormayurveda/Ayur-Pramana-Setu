@@ -83,6 +83,8 @@ export default async function AdminPage({
     { count: pubsFound },
     { count: pubsWithAbstract },
     { count: pubsCompared },
+    { count: primaryReports },
+    { count: registrationDisclosed },
   ] = await Promise.all([
     supabase.from("trials_raw").select("*", { count: "exact", head: true }),
     supabase.from("title_analysis").select("*", { count: "exact", head: true }),
@@ -91,6 +93,8 @@ export default async function AdminPage({
     supabase.from("trial_publications").select("*", { count: "exact", head: true }),
     supabase.from("trial_publications").select("*", { count: "exact", head: true }).not("abstract", "is", null),
     supabase.from("trial_publications").select("*", { count: "exact", head: true }).not("comparison_analyzed_at", "is", null),
+    supabase.from("trial_publications").select("*", { count: "exact", head: true }).eq("is_primary_report", true),
+    supabase.from("trial_publications").select("*", { count: "exact", head: true }).eq("is_primary_report", true).eq("discloses_own_trial_registration", true),
   ]);
 
   const pendingTitles = (totalTrials ?? 0) - (titleAnalyzed ?? 0);
@@ -230,6 +234,12 @@ export default async function AdminPage({
               Run comparison
             </button>
           </form>
+          {(primaryReports ?? 0) > 0 && (
+            <p className="mt-3 text-xs text-stone-500">
+              Registration disclosure: {registrationDisclosed ?? 0} of {primaryReports} confirmed trial-results
+              papers state their own CTRI registration number anywhere in the text.
+            </p>
+          )}
         </div>
       </div>
     </div>

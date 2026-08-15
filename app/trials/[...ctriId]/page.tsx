@@ -265,6 +265,11 @@ export default async function TrialReportPage({ params }: { params: Promise<{ ct
                         >
                           limitations {p.limitations_disclosed ? "disclosed" : "not disclosed"}
                         </span>
+                        <span
+                          className={`rounded-full px-2 py-0.5 font-medium ${p.discloses_own_trial_registration ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}`}
+                        >
+                          {p.discloses_own_trial_registration ? "registration disclosed" : "registration NOT disclosed"}
+                        </span>
                       </div>
                     )}
                     <p className="text-sm leading-relaxed text-stone-700">{p.comparison_notes}</p>

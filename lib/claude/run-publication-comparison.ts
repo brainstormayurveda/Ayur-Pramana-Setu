@@ -76,6 +76,7 @@ export async function runPublicationComparison({ limit = 100 }: { limit?: number
               is_primary_report: comparison.is_primary_report,
               outcome_switching_flag: comparison.outcome_switching_flag,
               limitations_disclosed: comparison.limitations_disclosed,
+              discloses_own_trial_registration: comparison.discloses_own_trial_registration,
               framing_assessment: comparison.framing_assessment,
               comparison_notes: comparison.comparison_notes,
               comparison_analyzed_at: new Date().toISOString(),
