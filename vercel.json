@@ -3,6 +3,8 @@
     { "path": "/api/cron/ingest", "schedule": "0 3 * * 1" },
     { "path": "/api/cron/analyze-titles", "schedule": "0 4 * * 1" },
     { "path": "/api/cron/analyze-methods", "schedule": "0 5 * * 1" },
-    { "path": "/api/cron/fragmentation-report", "schedule": "0 6 * * 1" }
+    { "path": "/api/cron/fragmentation-report", "schedule": "0 6 * * 1" },
+    { "path": "/api/cron/match-publications", "schedule": "0 7 * * 1" },
+    { "path": "/api/cron/compare-publications", "schedule": "0 8 * * 1" }
   ]
 }

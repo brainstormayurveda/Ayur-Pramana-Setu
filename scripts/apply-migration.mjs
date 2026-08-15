@@ -49,10 +49,24 @@ if (!connected) {
 }
 
 try {
+  await client.query(`
+    create table if not exists _migrations (
+      filename text primary key,
+      applied_at timestamptz default now()
+    );
+  `);
+  const { rows: appliedRows } = await client.query("select filename from _migrations");
+  const applied = new Set(appliedRows.map((r) => r.filename));
+
   for (const file of files) {
+    if (applied.has(file)) {
+      console.log(`Skipping ${file} (already applied).`);
+      continue;
+    }
     const sql = readFileSync(path.join(migrationsDir, file), "utf8");
     console.log(`Applying ${file}...`);
     await client.query(sql);
+    await client.query("insert into _migrations (filename) values ($1)", [file]);
     console.log(`Applied ${file}.`);
   }
   console.log("All migrations applied.");

@@ -1,7 +1,16 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { verifyPasscode, logoutAdmin, runIngestAction, runTitleAnalysisAction, runMethodsAnalysisAction, runFragmentationAction } from "./actions";
+import {
+  verifyPasscode,
+  logoutAdmin,
+  runIngestAction,
+  runTitleAnalysisAction,
+  runMethodsAnalysisAction,
+  runFragmentationAction,
+  runMatchPublicationsAction,
+  runComparePublicationsAction,
+} from "./actions";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 280;
@@ -13,6 +22,8 @@ const RUN_LABELS: Record<string, string> = {
   titles: "Title (SPIRIT) analysis",
   methods: "Methods & outcomes analysis",
   fragmentation: "Fragmentation report",
+  matchpubs: "Publication matching",
+  comparepubs: "Registered-vs-published comparison",
 };
 
 function LimitField() {
@@ -64,14 +75,28 @@ export default async function AdminPage({
   }
 
   const supabase = supabaseAdmin();
-  const [{ count: totalTrials }, { count: titleAnalyzed }, { count: methodsAnalyzed }] = await Promise.all([
+  const [
+    { count: totalTrials },
+    { count: titleAnalyzed },
+    { count: methodsAnalyzed },
+    { count: pubSearchDone },
+    { count: pubsFound },
+    { count: pubsWithAbstract },
+    { count: pubsCompared },
+  ] = await Promise.all([
     supabase.from("trials_raw").select("*", { count: "exact", head: true }),
     supabase.from("title_analysis").select("*", { count: "exact", head: true }),
     supabase.from("methods_analysis").select("*", { count: "exact", head: true }),
+    supabase.from("trials_raw").select("*", { count: "exact", head: true }).not("publication_search_completed_at", "is", null),
+    supabase.from("trial_publications").select("*", { count: "exact", head: true }),
+    supabase.from("trial_publications").select("*", { count: "exact", head: true }).not("abstract", "is", null),
+    supabase.from("trial_publications").select("*", { count: "exact", head: true }).not("comparison_analyzed_at", "is", null),
   ]);
 
   const pendingTitles = (totalTrials ?? 0) - (titleAnalyzed ?? 0);
   const pendingMethods = (titleAnalyzed ?? 0) - (methodsAnalyzed ?? 0);
+  const pendingPubSearch = (totalTrials ?? 0) - (pubSearchDone ?? 0);
+  const pendingComparisons = (pubsWithAbstract ?? 0) - (pubsCompared ?? 0);
 
   let parsedSummary: Record<string, unknown> | null = null;
   if (summary) {
@@ -168,6 +193,41 @@ export default async function AdminPage({
           <form action={runFragmentationAction} className="mt-3">
             <button type="submit" className="rounded-md bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-700">
               Recompute
+            </button>
+          </form>
+        </div>
+
+        <div className="rounded-lg border border-stone-200 bg-white p-5">
+          <h2 className="text-sm font-semibold text-stone-900">
+            5. Find published papers <span className="ml-2 font-normal text-stone-400">{pendingPubSearch} trials not yet searched</span>
+          </h2>
+          <p className="mt-1 text-sm text-stone-500">
+            Searches Europe PMC (free, no auth) for each trial&rsquo;s CTRI ID. {pubsFound ?? 0} candidate
+            match{(pubsFound ?? 0) === 1 ? "" : "es"} found so far. Matches are noisy — a hit can be the
+            trial&rsquo;s own paper, or an unrelated article that just cites the registration number; step 6
+            sorts that out.
+          </p>
+          <form action={runMatchPublicationsAction} className="mt-3 flex items-center gap-3">
+            <LimitField />
+            <button type="submit" className="rounded-md bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-700">
+              Search for publications
+            </button>
+          </form>
+        </div>
+
+        <div className="rounded-lg border border-stone-200 bg-white p-5">
+          <h2 className="text-sm font-semibold text-stone-900">
+            6. Registered-vs-published comparison <span className="ml-2 font-normal text-stone-400">{pendingComparisons} pending</span>
+          </h2>
+          <p className="mt-1 text-sm text-stone-500">
+            For each candidate match with an abstract: judges whether it&rsquo;s actually the trial&rsquo;s own
+            results paper, and if so, flags outcome switching, undisclosed limitations, and whether the
+            framing overstates what the registered methodology supports.
+          </p>
+          <form action={runComparePublicationsAction} className="mt-3 flex items-center gap-3">
+            <LimitField />
+            <button type="submit" className="rounded-md bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-700">
+              Run comparison
             </button>
           </form>
         </div>

@@ -6,6 +6,8 @@ import { ingestOnce } from "@/lib/ictrp/ingest";
 import { runTitleAnalysis } from "@/lib/claude/run-title-analysis";
 import { runMethodsAnalysis } from "@/lib/claude/run-methods-analysis";
 import { computeFragmentationReport } from "@/lib/reports/fragmentation";
+import { matchPublications } from "@/lib/europepmc/match";
+import { runPublicationComparison } from "@/lib/claude/run-publication-comparison";
 
 const COOKIE_NAME = "admin_passcode";
 
@@ -65,4 +67,18 @@ export async function runFragmentationAction() {
   await requireAdmin();
   const result = await computeFragmentationReport();
   redirect(`/admin?ran=fragmentation&summary=${encodeURIComponent(JSON.stringify(result))}`);
+}
+
+export async function runMatchPublicationsAction(formData: FormData) {
+  await requireAdmin();
+  const limit = parseLimit(formData);
+  const result = await matchPublications(limit ? { limit } : {});
+  redirect(`/admin?ran=matchpubs&summary=${encodeURIComponent(JSON.stringify(result))}`);
+}
+
+export async function runComparePublicationsAction(formData: FormData) {
+  await requireAdmin();
+  const limit = parseLimit(formData);
+  const result = await runPublicationComparison(limit ? { limit } : {});
+  redirect(`/admin?ran=comparepubs&summary=${encodeURIComponent(JSON.stringify(result))}`);
 }

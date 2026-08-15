@@ -16,6 +16,13 @@ const COMPLIANCE_STYLES: Record<string, string> = {
   non_compliant: "bg-rose-100 text-rose-800 border-rose-300",
 };
 
+const FRAMING_STYLES: Record<string, string> = {
+  appropriately_cautious: "bg-emerald-100 text-emerald-800",
+  consistent: "bg-stone-200 text-stone-700",
+  overstated: "bg-rose-100 text-rose-800",
+  not_assessable: "bg-stone-100 text-stone-500",
+};
+
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
@@ -55,6 +62,11 @@ export default async function TrialReportPage({ params }: { params: Promise<{ ct
     .from("trial_outcomes")
     .select("outcome_name, outcome_type, classification, matched_instrument_id")
     .eq("ctri_id", ctriId);
+  const { data: publications } = await supabase
+    .from("trial_publications")
+    .select("*")
+    .eq("ctri_id", ctriId)
+    .order("ingested_at", { ascending: true });
 
   const raw = (trial.raw_ictrp_record ?? {}) as Record<string, string>;
   const sourceUrl = raw["url"] || null;
@@ -193,6 +205,69 @@ export default async function TrialReportPage({ params }: { params: Promise<{ ct
                 </li>
               ))}
             </ul>
+          </div>
+        )}
+      </section>
+
+      {/* Phase 3: published paper(s) */}
+      <section className="mt-6 rounded-lg border border-stone-200 bg-white p-5">
+        <h2 className="text-sm font-semibold text-stone-900">Published paper</h2>
+        {!trial.publication_search_completed_at ? (
+          <p className="mt-3 text-sm text-stone-500">Not yet searched.</p>
+        ) : !publications || publications.length === 0 ? (
+          <p className="mt-3 text-sm text-stone-500">
+            Searched Europe PMC for this trial&rsquo;s registration number — no matching publication found.
+          </p>
+        ) : (
+          <div className="mt-3 space-y-4">
+            {publications.map((p) => (
+              <div key={p.id} className="rounded-md border border-stone-200 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <a
+                      href={p.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-medium text-stone-900 hover:underline"
+                    >
+                      {p.title ?? "Untitled"} ↗
+                    </a>
+                    <p className="mt-0.5 text-xs text-stone-500">
+                      {p.journal ? `${p.journal} · ` : ""}
+                      {p.pub_year ?? ""}
+                      {p.author_string ? ` · ${p.author_string}` : ""}
+                    </p>
+                  </div>
+                  {p.comparison_analyzed_at && (
+                    <span
+                      className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${p.is_primary_report ? (FRAMING_STYLES[p.framing_assessment ?? ""] ?? "bg-stone-100 text-stone-600") : "bg-stone-100 text-stone-500"}`}
+                    >
+                      {p.is_primary_report ? p.framing_assessment?.replace(/_/g, " ") : "not the trial's own paper"}
+                    </span>
+                  )}
+                </div>
+
+                {!p.comparison_analyzed_at ? (
+                  <p className="mt-3 text-xs text-stone-400">Comparison not yet run.</p>
+                ) : (
+                  <div className="mt-3 space-y-2">
+                    {p.is_primary_report && (
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        {p.outcome_switching_flag && (
+                          <span className="rounded-full bg-rose-100 px-2 py-0.5 font-medium text-rose-800">outcome switching</span>
+                        )}
+                        <span
+                          className={`rounded-full px-2 py-0.5 font-medium ${p.limitations_disclosed ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}
+                        >
+                          limitations {p.limitations_disclosed ? "disclosed" : "not disclosed"}
+                        </span>
+                      </div>
+                    )}
+                    <p className="text-sm leading-relaxed text-stone-700">{p.comparison_notes}</p>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </section>
