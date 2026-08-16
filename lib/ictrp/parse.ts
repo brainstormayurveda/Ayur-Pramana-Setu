@@ -12,6 +12,8 @@ export interface ParsedTrial {
   intervention: string | null;
   primaryOutcomes: string | null;
   secondaryOutcomes: string | null;
+  inclusionCriteria: string | null;
+  exclusionCriteria: string | null;
   targetSampleSizeTotal: number | null;
   primarySponsor: string | null;
   recruitmentStatus: string | null;
@@ -90,6 +92,17 @@ export function parseTrialDetail(html: string): ParsedTrial | null {
     }
   }
 
+  // Inclusion/Exclusion criteria render as a <span id="...Inclusion_criteriaLabel">
+  // whose own text includes the "Inclusion criteria:" prefix — neither of the two
+  // row shapes above, so extracted separately rather than via the row loop.
+  function extractLabeledSpan(idFragment: string, labelPrefix: RegExp): string | null {
+    const text = $(`span[id*="${idFragment}"]`).first().text().replace(/\s+/g, " ").trim();
+    if (!text) return null;
+    return text.replace(labelPrefix, "").trim() || null;
+  }
+  const inclusionCriteria = extractLabeledSpan("Inclusion_criteria", /^inclusion criteria:\s*/i);
+  const exclusionCriteria = extractLabeledSpan("Exclusion_criteria", /^exclusion criteria:\s*/i);
+
   const ctriId = fields["main id"];
   const register = fields["register"];
   if (!ctriId || !register) return null;
@@ -106,6 +119,8 @@ export function parseTrialDetail(html: string): ParsedTrial | null {
     intervention: fields["intervention(s)"] || null,
     primaryOutcomes: fields["primary outcome(s)"] || null,
     secondaryOutcomes: fields["secondary outcome(s)"] || null,
+    inclusionCriteria,
+    exclusionCriteria,
     targetSampleSizeTotal: toInt(fields["target sample size"]),
     primarySponsor: fields["primary sponsor"] || null,
     recruitmentStatus: fields["recruitment status"] || null,

@@ -25,6 +25,13 @@ const FRAMING_STYLES: Record<string, string> = {
   not_assessable: "bg-stone-100 text-stone-500",
 };
 
+const STAT_TEST_STYLES: Record<string, string> = {
+  appropriate: "bg-emerald-100 text-emerald-800",
+  questionable: "bg-rose-100 text-rose-800",
+  not_stated: "bg-stone-200 text-stone-700",
+  not_assessable: "bg-stone-100 text-stone-500",
+};
+
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
@@ -117,6 +124,12 @@ export default async function TrialReportPage({ params }: { params: Promise<{ ct
           <Field label="Ethics approval" value={trial.ethics_committee_approval} />
         </dl>
         <Field label="Study design (as registered)" value={trial.study_design} />
+        {(trial.inclusion_criteria || trial.exclusion_criteria) && (
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Inclusion criteria" value={trial.inclusion_criteria} />
+            <Field label="Exclusion criteria" value={trial.exclusion_criteria} />
+          </div>
+        )}
       </section>
 
       {/* Phase 1: SPIRIT Item 1 report */}
@@ -278,9 +291,24 @@ export default async function TrialReportPage({ params }: { params: Promise<{ ct
                         >
                           {p.discloses_own_trial_registration ? "registration disclosed" : "registration NOT disclosed"}
                         </span>
+                        {p.statistical_test_assessment && p.statistical_test_assessment !== "not_assessable" && (
+                          <span
+                            className={`rounded-full px-2 py-0.5 font-medium ${STAT_TEST_STYLES[p.statistical_test_assessment] ?? "bg-stone-100 text-stone-600"}`}
+                          >
+                            statistical test {p.statistical_test_assessment.replace(/_/g, " ")}
+                          </span>
+                        )}
                       </div>
                     )}
                     <p className="text-sm leading-relaxed text-stone-700">{p.comparison_notes}</p>
+                    {p.is_primary_report && p.statistical_test_notes && (
+                      <p className="text-sm leading-relaxed text-stone-600">
+                        <span className="font-medium text-stone-700">
+                          Statistical test{p.statistical_test_stated ? ` (${p.statistical_test_stated})` : ""}:
+                        </span>{" "}
+                        {p.statistical_test_notes}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>

@@ -137,6 +137,8 @@ export async function ingestOnce({ limit = 150 }: { limit?: number } = {}): Prom
             intervention: parsed.intervention,
             primary_outcomes: parsed.primaryOutcomes,
             secondary_outcomes: parsed.secondaryOutcomes,
+            inclusion_criteria: parsed.inclusionCriteria,
+            exclusion_criteria: parsed.exclusionCriteria,
             target_sample_size_total: parsed.targetSampleSizeTotal,
             primary_sponsor_type: parsed.primarySponsor,
             recruitment_status: parsed.recruitmentStatus,

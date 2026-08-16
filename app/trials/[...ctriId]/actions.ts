@@ -77,7 +77,7 @@ export async function addManualPublicationAction(formData: FormData) {
     .single();
   if (insertErr) throw new Error(insertErr.message);
 
-  const [{ data: trial }, { data: titleAnalysis }, { data: methodsAnalysis }, { data: outcomes }] = await Promise.all([
+  const [{ data: trial }, { data: titleAnalysis }, { data: methodsAnalysis }, { data: unvalidatedOutcomes }, { data: primaryOutcomes }] = await Promise.all([
     supabase
       .from("trials_raw")
       .select("title_public, title_scientific, condition, intervention, primary_outcomes, study_design")
@@ -90,6 +90,7 @@ export async function addManualPublicationAction(formData: FormData) {
       .eq("ctri_id", ctriId)
       .maybeSingle(),
     supabase.from("trial_outcomes").select("outcome_name").eq("ctri_id", ctriId).eq("classification", "investigator_devised_unvalidated"),
+    supabase.from("trial_outcomes").select("outcome_name, classification, assessment_criteria_text").eq("ctri_id", ctriId).eq("outcome_type", "primary"),
   ]);
 
   const input: PublicationComparisonInput = {
@@ -107,7 +108,12 @@ export async function addManualPublicationAction(formData: FormData) {
     blindingClass: methodsAnalysis?.blinding_class ?? null,
     internalConsistencyFlag: methodsAnalysis?.internal_consistency_flag ?? null,
     sampleSizeJustification: methodsAnalysis?.sample_size_justification ?? null,
-    investigatorDevisedOutcomeNames: (outcomes ?? []).map((o) => o.outcome_name).filter((n): n is string => !!n),
+    investigatorDevisedOutcomeNames: (unvalidatedOutcomes ?? []).map((o) => o.outcome_name).filter((n): n is string => !!n),
+    primaryOutcomesDetail: (primaryOutcomes ?? []).map((o) => ({
+      name: o.outcome_name ?? "",
+      classification: o.classification ?? "unclassified",
+      gradingText: o.assessment_criteria_text ?? null,
+    })),
     publicationTitle: title,
     publicationAuthors: authorString,
     publicationJournal: journal,
@@ -125,6 +131,9 @@ export async function addManualPublicationAction(formData: FormData) {
         outcome_switching_flag: comparison.outcome_switching_flag,
         limitations_disclosed: comparison.limitations_disclosed,
         discloses_own_trial_registration: comparison.discloses_own_trial_registration,
+        statistical_test_stated: comparison.statistical_test_stated,
+        statistical_test_assessment: comparison.statistical_test_assessment,
+        statistical_test_notes: comparison.statistical_test_notes,
         framing_assessment: comparison.framing_assessment,
         comparison_notes: comparison.comparison_notes,
         comparison_analyzed_at: new Date().toISOString(),
