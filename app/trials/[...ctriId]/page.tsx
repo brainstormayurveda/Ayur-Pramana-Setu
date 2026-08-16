@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { isAdminAuthed } from "@/lib/admin-auth";
-import { addManualPublicationAction, extractHerbsForTrialAction } from "./actions";
+import { addManualPublicationAction, extractHerbsForTrialAction, runConsortCheckAction } from "./actions";
+import { isRandomizedDesign } from "@/lib/claude/consort-abstract-check";
 
 export const dynamic = "force-dynamic";
 
@@ -77,6 +78,10 @@ export default async function TrialReportPage({ params }: { params: Promise<{ ct
     .eq("ctri_id", ctriId)
     .order("ingested_at", { ascending: true });
   const { data: herbs } = await supabase.from("trial_herbs").select("herb_name, scientific_name, source_text").eq("ctri_id", ctriId);
+  const publicationIds = (publications ?? []).map((p) => p.id);
+  const { data: checklistRows } = publicationIds.length
+    ? await supabase.from("publication_reporting_checklist").select("publication_id, item_name, reported, note").in("publication_id", publicationIds)
+    : { data: [] };
   const isAdmin = await isAdminAuthed();
 
   const raw = (trial.raw_ictrp_record ?? {}) as Record<string, string>;
@@ -299,6 +304,13 @@ export default async function TrialReportPage({ params }: { params: Promise<{ ct
                             statistical test {p.statistical_test_assessment.replace(/_/g, " ")}
                           </span>
                         )}
+                        {p.reporting_checklist_applicable && (
+                          <span
+                            className={`rounded-full px-2 py-0.5 font-medium ${(p.reporting_checklist_items_reported ?? 0) >= (p.reporting_checklist_items_total ?? 1) * 0.7 ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}
+                          >
+                            CONSORT-Abstract {p.reporting_checklist_items_reported}/{p.reporting_checklist_items_total}
+                          </span>
+                        )}
                       </div>
                     )}
                     <p className="text-sm leading-relaxed text-stone-700">{p.comparison_notes}</p>
@@ -309,6 +321,39 @@ export default async function TrialReportPage({ params }: { params: Promise<{ ct
                         </span>{" "}
                         {p.statistical_test_notes}
                       </p>
+                    )}
+                    {p.reporting_checklist_applicable ? (
+                      <details className="rounded-md border border-stone-100 bg-stone-50 p-2 text-sm">
+                        <summary className="cursor-pointer font-medium text-stone-700">
+                          CONSORT for Abstracts checklist ({p.reporting_checklist_items_reported}/{p.reporting_checklist_items_total} items reported)
+                        </summary>
+                        <ul className="mt-2 space-y-1.5">
+                          {(checklistRows ?? [])
+                            .filter((c) => c.publication_id === p.id)
+                            .map((c, i) => (
+                              <li key={i} className="flex items-start gap-2">
+                                <span className={`mt-0.5 rounded px-1.5 py-0.5 text-xs font-medium ${c.reported ? "bg-emerald-100 text-emerald-800" : "bg-stone-200 text-stone-500"}`}>
+                                  {c.reported ? "✓" : "✗"}
+                                </span>
+                                <span className="text-xs text-stone-600">
+                                  <span className="font-medium text-stone-700">{c.item_name}:</span> {c.note}
+                                </span>
+                              </li>
+                            ))}
+                        </ul>
+                      </details>
+                    ) : (
+                      isAdmin &&
+                      p.is_primary_report &&
+                      isRandomizedDesign(trial.study_design) && (
+                        <form action={runConsortCheckAction}>
+                          <input type="hidden" name="publicationId" value={p.id} />
+                          <input type="hidden" name="ctriId" value={trial.ctri_id} />
+                          <button type="submit" className="rounded-full border border-stone-300 px-3 py-1 text-xs font-medium text-stone-600 hover:bg-stone-100">
+                            Run CONSORT for Abstracts check
+                          </button>
+                        </form>
+                      )
                     )}
                   </div>
                 )}

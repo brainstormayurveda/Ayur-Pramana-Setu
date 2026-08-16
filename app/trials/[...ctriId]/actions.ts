@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/admin-auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { resolveDoi } from "@/lib/crossref/client";
 import { comparePublication, PublicationComparisonInput } from "@/lib/claude/publication-comparison";
+import { runAndPersistConsortCheck, isRandomizedDesign } from "@/lib/claude/consort-abstract-check";
 import { extractHerbs } from "@/lib/claude/herb-extraction";
 
 function nonEmpty(formData: FormData, key: string): string | null {
@@ -180,6 +181,34 @@ export async function extractHerbsForTrialAction(formData: FormData) {
     );
   }
   await supabase.from("trials_raw").update({ herb_extraction_completed_at: new Date().toISOString() }).eq("ctri_id", ctriId);
+
+  redirect(`/trials/${ctriId}`);
+}
+
+/**
+ * Runs the CONSORT for Abstracts checklist for one specific publication —
+ * on-demand, per-publication, deliberately not run automatically alongside
+ * the registered-vs-published comparison (the user wants explicit control
+ * over when this specific Claude call fires, same reasoning as herb
+ * extraction above).
+ */
+export async function runConsortCheckAction(formData: FormData) {
+  await requireAdmin();
+
+  const publicationId = String(formData.get("publicationId") ?? "");
+  const ctriId = String(formData.get("ctriId") ?? "");
+  if (!publicationId || !ctriId) throw new Error("Missing publication or CTRI ID.");
+
+  const supabase = supabaseAdmin();
+  const [{ data: pub }, { data: trial }] = await Promise.all([
+    supabase.from("trial_publications").select("title, abstract, is_primary_report").eq("id", publicationId).maybeSingle(),
+    supabase.from("trials_raw").select("study_design").eq("ctri_id", ctriId).maybeSingle(),
+  ]);
+  if (!pub) throw new Error("Publication not found.");
+  if (!pub.is_primary_report) throw new Error("Only applicable to a confirmed primary results paper.");
+  if (!isRandomizedDesign(trial?.study_design ?? null)) throw new Error("Only applicable to randomized trial designs.");
+
+  await runAndPersistConsortCheck(supabase, publicationId, ctriId, trial?.study_design ?? null, pub.is_primary_report, pub.title, pub.abstract);
 
   redirect(`/trials/${ctriId}`);
 }
