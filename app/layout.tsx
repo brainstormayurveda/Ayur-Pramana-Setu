@@ -37,6 +37,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <Link href="/conditions" className="hover:text-stone-900">
                 Fragmentation Report
               </Link>
+              <Link href="/herbs" className="hover:text-stone-900">
+                Herb Literature
+              </Link>
               <Link href="/admin" className="hover:text-stone-900">
                 Admin
               </Link>

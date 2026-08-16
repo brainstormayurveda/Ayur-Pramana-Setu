@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/admin-auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { resolveDoi } from "@/lib/crossref/client";
 import { comparePublication, PublicationComparisonInput } from "@/lib/claude/publication-comparison";
+import { extractHerbs } from "@/lib/claude/herb-extraction";
 
 function nonEmpty(formData: FormData, key: string): string | null {
   const v = String(formData.get(key) ?? "").trim();
@@ -143,6 +144,42 @@ export async function addManualPublicationAction(formData: FormData) {
     // Row is saved either way; comparison_analyzed_at stays null so the
     // weekly compare-publications cron (or a manual admin re-run) can retry it.
   }
+
+  redirect(`/trials/${ctriId}`);
+}
+
+/**
+ * Extracts named herbs from this one trial's registered intervention text —
+ * on-demand, per-trial, not run in bulk (the user explicitly didn't want an
+ * automatic full-corpus batch; they wanted to pick a trial and trigger it).
+ */
+export async function extractHerbsForTrialAction(formData: FormData) {
+  await requireAdmin();
+
+  const ctriId = String(formData.get("ctriId") ?? "");
+  if (!ctriId) throw new Error("Missing CTRI ID.");
+
+  const supabase = supabaseAdmin();
+  const { data: trial } = await supabase.from("trials_raw").select("intervention, condition").eq("ctri_id", ctriId).maybeSingle();
+
+  const herbs = await extractHerbs({
+    ctriId,
+    intervention: trial?.intervention ?? null,
+    condition: trial?.condition ?? null,
+  });
+
+  await supabase.from("trial_herbs").delete().eq("ctri_id", ctriId);
+  if (herbs.length > 0) {
+    await supabase.from("trial_herbs").insert(
+      herbs.map((h) => ({
+        ctri_id: ctriId,
+        herb_name: h.herb_name,
+        scientific_name: h.scientific_name,
+        source_text: h.source_text,
+      }))
+    );
+  }
+  await supabase.from("trials_raw").update({ herb_extraction_completed_at: new Date().toISOString() }).eq("ctri_id", ctriId);
 
   redirect(`/trials/${ctriId}`);
 }

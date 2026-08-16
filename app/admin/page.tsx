@@ -242,6 +242,14 @@ export default async function AdminPage({
           )}
         </div>
       </div>
+
+      <p className="mt-6 text-xs text-stone-500">
+        Herb extraction is per-trial, not run in bulk — open any{" "}
+        <Link href="/" className="underline">
+          trial&rsquo;s report page
+        </Link>{" "}
+        and use the &ldquo;Extract herbs&rdquo; button there.
+      </p>
     </div>
   );
 }

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { isAdminAuthed } from "@/lib/admin-auth";
-import { addManualPublicationAction } from "./actions";
+import { addManualPublicationAction, extractHerbsForTrialAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -76,6 +76,7 @@ export default async function TrialReportPage({ params }: { params: Promise<{ ct
     .select("*")
     .eq("ctri_id", ctriId)
     .order("ingested_at", { ascending: true });
+  const { data: herbs } = await supabase.from("trial_herbs").select("herb_name, scientific_name, source_text").eq("ctri_id", ctriId);
   const isAdmin = await isAdminAuthed();
 
   const raw = (trial.raw_ictrp_record ?? {}) as Record<string, string>;
@@ -367,6 +368,40 @@ export default async function TrialReportPage({ params }: { params: Promise<{ ct
               </div>
             </form>
           </div>
+        )}
+      </section>
+
+      {/* Herbs named in the intervention + independent literature */}
+      <section className="mt-6 rounded-lg border border-stone-200 bg-white p-5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-stone-900">Herbs named in this trial</h2>
+          {isAdmin && (
+            <form action={extractHerbsForTrialAction}>
+              <input type="hidden" name="ctriId" value={trial.ctri_id} />
+              <button type="submit" className="rounded-full border border-stone-300 px-3 py-1 text-xs font-medium text-stone-600 hover:bg-stone-100">
+                {trial.herb_extraction_completed_at ? "Re-extract herbs" : "Extract herbs"}
+              </button>
+            </form>
+          )}
+        </div>
+
+        {!trial.herb_extraction_completed_at ? (
+          <p className="mt-3 text-sm text-stone-500">Not yet extracted.</p>
+        ) : !herbs || herbs.length === 0 ? (
+          <p className="mt-3 text-sm text-stone-500">No specific herbs named in the registered intervention text.</p>
+        ) : (
+          <ul className="mt-3 space-y-2">
+            {herbs.map((h, i) => (
+              <li key={i} className="rounded-md border border-stone-100 bg-stone-50 px-3 py-2 text-sm">
+                <Link href={`/herbs/${encodeURIComponent(h.herb_name)}`} className="font-medium text-stone-900 hover:underline">
+                  {h.herb_name}
+                </Link>
+                {h.scientific_name && <span className="ml-2 text-xs italic text-stone-500">{h.scientific_name}</span>}
+                <span className="ml-2 text-xs text-emerald-700">→ search literature</span>
+                {h.source_text && <p className="mt-1 text-xs text-stone-500">&ldquo;{h.source_text}&rdquo;</p>}
+              </li>
+            ))}
+          </ul>
         )}
       </section>
     </div>
